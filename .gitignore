@@ -1,0 +1,28 @@
+# Секреты и креденшелы
+.env
+.env.*
+!.env.example
+*cookies*.json
+
+# Runtime state
+sessions.json
+llm_selection.json
+logs/
+*.log
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+build/
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

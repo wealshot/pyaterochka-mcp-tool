@@ -1,0 +1,13 @@
+# Ядро (API-слой Пятёрочки + MCP-серверы)
+aiohttp>=3.9
+aiohttp-socks>=0.8
+yarl>=1.9
+python-dotenv>=1.0
+
+# Telegram-бот
+aiogram>=3.13,<4
+
+# Браузерный транспорт (опционально): живая web-сессия 5ka.ru без ручных cookies.
+# Если не нужен — можно не ставить и работать через aiohttp + cookies.json.
+# После установки выполните: python -m camoufox fetch
+# camoufox[geoip]>=0.4

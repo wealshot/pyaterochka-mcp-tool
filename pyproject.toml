@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyaterochka-mcp-tool"
+version = "1.0.0"
+description = "MCP server and AI Telegram bot for searching Pyaterochka stores and products"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "aiohttp>=3.9",
+    "aiohttp-socks>=0.8",
+    "yarl>=1.9",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+bot = ["aiogram>=3.13,<4"]
+browser = ["camoufox[geoip]"]
+all = ["aiogram>=3.13,<4", "camoufox[geoip]"]
+
+[project.scripts]
+pyaterochka-mcp = "mcp.mcp_server:main"
+pyaterochka-mcp-http = "mcp_http_server:main"
+pyaterochka-bot = "bot:main"
+pyaterochka-run = "run:main"
+
+[tool.setuptools]
+py-modules = [
+    "agent",
+    "bot",
+    "config",
+    "live_timer",
+    "llm_client",
+    "mcp_http_server",
+    "providers",
+    "pyaterochka_store_api",
+    "run",
+    "stats",
+]
+packages = ["mcp"]
