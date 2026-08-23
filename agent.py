@@ -25,6 +25,16 @@ MAX_COLLECTED_PRODUCTS = 300
 # Максимум вызовов инструментов за один запрос — защита от зацикливания модели.
 MAX_TOOL_CALLS = 30
 
+# После стольких подряд упавших инструментов считаем сервис недоступным
+# и заставляем модель завершить ответ, а не долбить дальше.
+MAX_CONSECUTIVE_TOOL_FAILURES = 4
+
+TOOL_FAILURE_FINAL_MESSAGE = (
+    "Стоп. Инструменты Пятёрочки сейчас недоступны (сервис отвечает ошибками). "
+    "Немедленно сформируй итоговый ответ из того, что уже найдено, и обязательно "
+    "сообщи пользователю, что сервис магазина временно недоступен — новые поиски не выполнять."
+)
+
 FORCE_FINAL_MESSAGE = (
     "Стоп. Поиски завершены — их уже достаточно. Сейчас же сформируй ИТОГОВЫЙ ответ пользователю: "
     "перечисли найденные товары с ценами и акциями. Больше НЕ вызывай инструменты и не начинай новых поисков."
@@ -332,6 +342,7 @@ class PyaterochkaAgent:
         session.messages.append({"role": "user", "content": user_text})
         products_by_plu: dict[str, dict[str, Any]] = {}
         total_tool_calls = 0
+        consecutive_failures = 0
 
         for step in range(MAX_STEPS):
             if should_stop and should_stop():
@@ -339,9 +350,13 @@ class PyaterochkaAgent:
                 return
             if _estimate_messages_tokens(session.messages) > COMPACT_THRESHOLD_TOKENS:
                 session.compact()
-            force_final = total_tool_calls >= MAX_TOOL_CALLS
+            service_down = consecutive_failures >= MAX_CONSECUTIVE_TOOL_FAILURES
+            force_final = total_tool_calls >= MAX_TOOL_CALLS or service_down
             if force_final:
-                session.messages.append({"role": "system", "content": FORCE_FINAL_MESSAGE})
+                session.messages.append({
+                    "role": "system",
+                    "content": TOOL_FAILURE_FINAL_MESSAGE if service_down else FORCE_FINAL_MESSAGE,
+                })
             messages = [{"role": "system", "content": session.system_prompt()}] + session.messages[-MAX_HISTORY_MESSAGES:]
             content_parts: list[str] = []
             assistant_message: dict[str, Any] | None = None
@@ -434,7 +449,8 @@ class PyaterochkaAgent:
                     else:
                         result = await self._run_tool(name, arguments, session)
                         self._collect_products(result, products_by_plu)
-                    result_text = json.dumps(result, ensure_ascii=False)
+                        consecutive_failures = 0
+                        result_text = json.dumps(result, ensure_ascii=False)
                     yield {
                         "type": "tool_done",
                         "name": name,
@@ -443,6 +459,7 @@ class PyaterochkaAgent:
                     }
                 except Exception as exc:  # noqa: BLE001 — ошибки уходят модели
                     logger.exception("tool %s failed", name)
+                    consecutive_failures += 1
                     error_text = str(exc) or f"{type(exc).__name__}"
                     result_text = json.dumps(
                         {

@@ -428,6 +428,13 @@ class PyaterochkaStoreAPI:
         # устройства при повторном использовании ServicePipe cookies может
         # выглядеть как новая подозрительная сессия.
         self._device_id = os.getenv("PYATEROCHKA_DEVICE_ID", "web-test-device")
+        # Антибот-гигиена: минимальный интервал между запросами к каталогу
+        # и самолечение браузерного транспорта при NetworkError.
+        self._pace_lock = asyncio.Lock()
+        self._last_request_ts = 0.0
+        self._min_request_interval = float(os.getenv("PYATEROCHKA_MIN_INTERVAL", "0.45"))
+        self._browser_restart_lock = asyncio.Lock()
+        self._network_failures = 0
 
     def _load_cookie_records(self) -> list[dict[str, Any]]:
         if self.cookies_path is None:
@@ -764,7 +771,18 @@ class PyaterochkaStoreAPI:
                 encoding="utf-8",
             )
 
+    async def _pace(self) -> None:
+        """Держит паузу между запросами к 5ka — чтобы антибот не срабатывал
+        на серию мгновенных запросов подряд."""
+        loop = asyncio.get_running_loop()
+        async with self._pace_lock:
+            wait = self._last_request_ts + self._min_request_interval - loop.time()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_request_ts = loop.time()
+
     async def _request_json(self, base_url: str, path: str, params: dict[str, Any]) -> Any:
+        await self._pace()
         query = f"?{urlencode(params, doseq=True)}" if params else ""
         url = URL(f"{base_url}{path}{query}", encoded=True)
         if self._http_session is not None:
@@ -857,6 +875,12 @@ class PyaterochkaStoreAPI:
         result = await self._page_fetch(str(url), browser_headers)
         status = int(result.get("status") or 0)
         body = result.get("text") or ""
+        if status in (502, 503):
+            # Перегрузка/антибот: короткая пауза и одна повторная попытка.
+            await asyncio.sleep(2.0)
+            result = await self._page_fetch(str(url), browser_headers)
+            status = int(result.get("status") or 0)
+            body = result.get("text") or ""
         if status == 403:
             # Cookie-сессия могла протухнуть: перепрогреваем страницу в живом
             # браузере, ServicePipe выдаёт свежие куки, пробуем ещё раз.
@@ -868,6 +892,8 @@ class PyaterochkaStoreAPI:
             snippet = body[:300]
             if status == 403:
                 snippet = "защитная страница/истёкшая cookie-сессия"
+            if status in (502, 503):
+                snippet = "сервис Пятёрочки перегружен (антибот/503) — попробуй позже или другой запрос"
             raise PyaterochkaAPIError(f"GET {path}: HTTP {status}: {snippet}")
         try:
             return json.loads(body)
@@ -875,22 +901,74 @@ class PyaterochkaStoreAPI:
             raise PyaterochkaAPIError(f"GET {path}: ответ не JSON: {body[:300]}") from exc
 
     async def _page_fetch(self, url: str, headers: dict[str, str]) -> dict[str, Any]:
-        """Выполняет GET fetch'ем из контекста страницы (как настоящий сайт)."""
+        """Выполняет GET fetch'ем из контекста страницы (как настоящий сайт).
+
+        Если страница отвалилась (NetworkError / умер контекст) — один раз
+        перезапускаем браузерный транспорт и повторяем запрос.
+        """
         assert self._page is not None
-        return await self._page.evaluate(
-            """async (payload) => {
-                const resp = await fetch(payload.url, {
-                    method: 'GET',
-                    headers: payload.headers,
-                    credentials: 'include',
-                    mode: 'cors',
-                    redirect: 'follow',
-                });
-                const text = await resp.text();
-                return { status: resp.status, text: text };
-            }""",
-            {"url": url, "headers": headers},
-        )
+        try:
+            result = await self._page.evaluate(
+                """async (payload) => {
+                    const resp = await fetch(payload.url, {
+                        method: 'GET',
+                        headers: payload.headers,
+                        credentials: 'include',
+                        mode: 'cors',
+                        redirect: 'follow',
+                    });
+                    const text = await resp.text();
+                    return { status: resp.status, text: text };
+                }""",
+                {"url": url, "headers": headers},
+            )
+        except Exception as exc:
+            text = str(exc)
+            if "NetworkError" not in text and "Target closed" not in text and "Page.evaluate" not in text:
+                raise
+            self._network_failures += 1
+            logger.warning(
+                "Браузерная страница 5ka отвалилась (%s) — перезапускаю транспорт (сбой #%d)",
+                text[:120], self._network_failures,
+            )
+            await self._restart_browser()
+            assert self._page is not None
+            result = await self._page.evaluate(
+                """async (payload) => {
+                    const resp = await fetch(payload.url, {
+                        method: 'GET',
+                        headers: payload.headers,
+                        credentials: 'include',
+                        mode: 'cors',
+                        redirect: 'follow',
+                    });
+                    const text = await resp.text();
+                    return { status: resp.status, text: text };
+                }""",
+                {"url": url, "headers": headers},
+            )
+        self._network_failures = 0
+        return result
+
+    async def _restart_browser(self) -> None:
+        """Полный перезапуск браузерного транспорта: страница могла быть
+        заблокирована антиботом или контекст умер — лечится только пересозданием."""
+        async with self._browser_restart_lock:
+            try:
+                if self._browser is not None:
+                    try:
+                        await self._browser.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                self._browser = None
+                self._context = None
+                self._page = None
+                await self._start_browser()
+                logger.info("Браузерный транспорт 5ka перезапущен после сбоя страницы")
+            except Exception as exc:  # noqa: BLE001
+                raise PyaterochkaAPIError(
+                    f"Не удалось перезапустить браузерную сессию 5ka: {exc}"
+                ) from exc
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         return await self._request_json(CATALOG_URL, path, params or {})
