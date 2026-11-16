@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pyaterochka-catalog-mcp
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: MCP_AUTH_TOKEN
+        generateValue: true
+      - key: PYATEROCHKA_MIN_INTERVAL
+        value: "0.8"
