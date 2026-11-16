@@ -4,69 +4,142 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#d71920">
-<title>Пятёрочка — каталог</title>
+<title>Каталог — Пятёрочка</title>
 <style>
-:root{color-scheme:light;--red:#d71920;--ink:#202124;--muted:#777;--line:#ececec;--bg:#f6f6f6}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-header{background:var(--red);color:white;padding:18px 18px 22px;font-weight:800;font-size:21px}
-header small{display:block;font-size:12px;font-weight:500;opacity:.9;margin-top:4px}
-main{max-width:680px;margin:0 auto;padding:16px 14px 30px}
-.panel,.bubble{background:white;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
-label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
-input,textarea{width:100%;border:1px solid #ddd;border-radius:11px;padding:12px;font:inherit;background:#fff;color:var(--ink)}
-button{border:0;border-radius:12px;background:var(--red);color:white;padding:12px 16px;font:600 15px inherit;cursor:pointer}
-button.secondary{background:#f0f0f0;color:#333}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-#messages{min-height:180px}.msg{padding:12px 13px;border-radius:14px;margin:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4}.user{background:#fff0f0;margin-left:28px}.bot{background:#f1f1f1;margin-right:16px}.hint{font-size:12px;color:var(--muted);line-height:1.4}.status{font-size:12px;color:var(--muted);margin-top:8px}.hidden{display:none}
+:root{color-scheme:light;--red:#d71920;--ink:#242424;--muted:#777;--line:#eee;--bg:#f5f5f5;--green:#18864b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:var(--red);color:#fff;padding:13px max(16px,calc((100% - 1120px)/2));padding-top:calc(13px + env(safe-area-inset-top));}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:22px}.brand-mark{width:35px;height:35px;border-radius:50%;background:#fff;color:var(--red);display:grid;place-items:center;font-weight:900}
+.store{font-size:12px;opacity:.92;margin:5px 0 12px}.search{display:flex;gap:8px}.search input{min-width:0;flex:1;border:0;border-radius:12px;padding:13px 14px;font:inherit;outline:none}.search button{border:0;border-radius:12px;background:#a90e15;color:#fff;padding:0 18px;font-weight:700}
+main{max-width:1120px;margin:auto;padding:15px 14px 40px}.status{font-size:12px;color:var(--muted);padding:3px 2px 12px}.section-title{font-size:18px;font-weight:800;margin:8px 0 12px}
+.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:16px}.side,.content{min-width:0}.box{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px}.categories{display:flex;flex-direction:column;gap:3px;max-height:70vh;overflow:auto}.cat{border:0;background:transparent;text-align:left;padding:10px 9px;border-radius:9px;font:inherit;color:#333;cursor:pointer}.cat.active{background:#fff0f0;color:var(--red);font-weight:750}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.toolbar select{border:1px solid #ddd;background:#fff;border-radius:9px;padding:9px;font:inherit}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.product{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;min-width:0;cursor:pointer;display:flex;flex-direction:column;position:relative}.photo{height:150px;display:grid;place-items:center;margin-bottom:8px}.photo img{width:100%;height:100%;object-fit:contain}.placeholder{font-size:38px;color:#bbb}.promo{position:absolute;top:9px;left:9px;background:#ffe9e9;color:var(--red);font-size:11px;font-weight:800;border-radius:6px;padding:4px 6px}.price{font-size:20px;font-weight:850;white-space:nowrap}.old{font-size:12px;color:#999;text-decoration:line-through;margin-left:5px}.name{font-size:13px;line-height:1.35;margin:7px 0;color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:52px}.size{font-size:11px;color:#888;margin-top:auto}.empty,.error{background:#fff;border-radius:13px;padding:20px;color:var(--muted);line-height:1.5}.error{color:#a00}.more{display:block;margin:18px auto 0;border:0;border-radius:12px;background:var(--red);color:#fff;padding:12px 25px;font:700 14px inherit}.more:disabled{opacity:.5}.mobile-cats{display:none}.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:5;padding:12px}.modal.open{display:flex}.dialog{width:min(600px,100%);max-height:85vh;overflow:auto;background:white;border-radius:20px;padding:20px;position:relative}.close{position:absolute;right:12px;top:12px;border:0;background:#eee;border-radius:50%;width:34px;height:34px;font-size:20px}.detail-photo{height:220px;display:grid;place-items:center}.detail-photo img{height:100%;max-width:100%;object-fit:contain}.detail-name{font-size:20px;font-weight:800;margin:12px 0}.detail-meta{font-size:13px;color:#666;line-height:1.6}.detail-price{font-size:26px;font-weight:900;margin-top:12px}.detail-price s{font-size:15px;color:#999;font-weight:500;margin-left:8px}.foot{font-size:11px;color:#999;margin-top:22px;line-height:1.5}
+@media(max-width:850px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.layout{grid-template-columns:205px 1fr}}
+@media(max-width:600px){header{padding-left:14px;padding-right:14px}.layout{display:block}.side{display:none}.mobile-cats{display:block;margin-bottom:13px}.categories{flex-direction:row;max-height:none;overflow-x:auto;white-space:nowrap}.cat{flex:0 0 auto;background:#fff;border:1px solid #eee;padding:9px 12px}.cat.active{border-color:#ffd0d0}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.product{padding:9px}.photo{height:130px}.price{font-size:19px}.name{font-size:12px;min-height:48px}main{padding:12px 10px 32px}.toolbar{align-items:flex-start}.section-title{font-size:17px}}
 </style>
 </head>
 <body>
-<header>🛒 Пятёрочка — каталог<small>Поиск товаров и цен в выбранном магазине</small></header>
+<header>
+ <div class="brand"><span class="brand-mark">5</span><span>Пятёрочка</span><span style="font-size:14px;font-weight:600">каталог</span></div>
+ <div class="store" id="storeLine">Биробиджан, ул. Советская, д. 68 к. 1</div>
+ <div class="search"><input id="query" type="search" placeholder="Найти товар в магазине" autocomplete="off"><button id="searchBtn">Найти</button></div>
+</header>
 <main>
-<section class="panel" id="setup">
-  <strong>Магазин: Биробиджан, ул. Советская, д. 68 к. 1</strong><div class="hint" style="margin-top:6px">Подключение выполняется автоматически. Токен хранится на сервере и не нужен на телефоне.</div>
-</section>
-<section class="panel" id="chatPanel">
-  <div class="row"><strong>Поиск по каталогу</strong></div>
-  <div id="messages" aria-live="polite"></div>
-  <label for="question">Что найти?</label>
-  <div class="row"><input id="question" placeholder="Например: куриное филе 1 кг"><button id="send" style="flex:0 0 auto">Найти</button></div>
-  <div class="status" id="chatStatus">Подключено к серверу</div>
-</section>
+ <div class="status" id="status">Загружаю каталог магазина…</div>
+ <div class="mobile-cats box"><div class="section-title">Категории</div><nav class="categories" id="mobileCategories"></nav></div>
+ <div class="layout">
+  <aside class="side box"><div class="section-title">Категории</div><nav class="categories" id="categories"></nav></aside>
+  <section class="content">
+   <div class="toolbar"><div class="section-title" id="heading">Товары</div><select id="sort"><option value="popularity">Популярные</option><option value="price_asc">Сначала дешевле</option><option value="price_desc">Сначала дороже</option></select></div>
+   <div class="grid" id="products"></div>
+   <div id="empty" class="empty" hidden>В этой категории товары не найдены.</div>
+   <button id="more" class="more" hidden>Показать ещё</button>
+  </section>
+ </div>
+ <div class="foot">Цены и ассортимент загружаются из каталога Пятёрочки для выбранного магазина. Информация может изменяться; время последней проверки показывается над каталогом. Сайт не является официальным сайтом сети.</div>
 </main>
+<div class="modal" id="modal"><div class="dialog"><button class="close" id="close">×</button><div id="detail"></div></div></div>
 <script>
 (() => {
-const base = location.origin;
-let requestId = 0;
-const $ = id => document.getElementById(id);
-function bubble(text, who) {
- const el=document.createElement("div"); el.className="msg "+who; el.textContent=text; $("messages").appendChild(el); el.scrollIntoView({block:"nearest"});
-}
-async function rpc(method, params={}) {
- const id=++requestId;
- const response=await fetch(base+"/app-api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id,method,params})});
- if(!response.ok) throw new Error(response.status===401?"Неверный токен. Проверь MCP_AUTH_TOKEN в Render.":"Ошибка сервера: HTTP "+response.status);
- const data=await response.json();
- if(data.error) throw new Error(data.error.message||"Ошибка MCP");
- return data.result;
-}
-function connect() { bubble("Каталог готов к поиску. Напиши название товара, например «куриное филе».","bot"); }
-async function search() {
- const q=$("question").value.trim(); if(!q)return;
- $("question").value=""; bubble(q,"user"); $("send").disabled=true; $("chatStatus").textContent="Ищу в каталоге…";
- try {
-  const result=await rpc("tools/call",{name:"find_products",arguments:{query:q,limit:20,sort:"price_asc"}});
-  const content=(result.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");
-  let output=content||JSON.stringify(result);
-  try { output=JSON.stringify(JSON.parse(content),null,2); } catch {}
-  bubble(output,"bot");
-  $("chatStatus").textContent=result.isError?"Запрос завершился с ошибкой":"Поиск завершён";
- } catch(e){bubble("Не удалось выполнить поиск: "+e.message,"bot");$("chatStatus").textContent="Ошибка"}
- finally{$("send").disabled=false}
-}
-$("send").addEventListener("click",search);
-$("question").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
-connect();
+ const $=id=>document.getElementById(id), API='/catalog-api', PAGE=30;
+ let categories=[], selected=null, offset=0, mode='category', query='', busy=false, hasMore=false;
+ const money=v=>v==null?'Цена не указана':new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+' ₽';
+ const esc=s=>String(s??'');
+ async function get(path){
+  const r=await fetch(API+path,{headers:{Accept:'application/json'}});
+  const d=await r.json().catch(()=>({error:'Сервер вернул некорректный ответ'}));
+  if(!r.ok)throw new Error(d.error||d.message||('Ошибка HTTP '+r.status));
+  return d;
+ }
+ function setStatus(s){$('status').textContent=s}
+ function renderCats(){
+  ['categories','mobileCategories'].forEach(id=>{
+   const root=$(id);root.replaceChildren();
+   const all=document.createElement('button');all.className='cat'+(!selected?' active':'');all.textContent='Все категории';all.onclick=()=>chooseCategory(null);root.append(all);
+   categories.forEach(cat=>{
+    const b=document.createElement('button');b.className='cat'+(selected===cat.id?' active':'');b.textContent=cat.full_name||cat.name;b.onclick=()=>chooseCategory(cat);root.append(b);
+   });
+  });
+ }
+ function productCard(p){
+  const card=document.createElement('article');card.className='product';card.onclick=()=>openProduct(p);
+  if(p.is_promo){const tag=document.createElement('span');tag.className='promo';tag.textContent=p.promo_label||'Акция';card.append(tag)}
+  const photo=document.createElement('div');photo.className='photo';
+  if(p.image){const img=document.createElement('img');img.loading='lazy';img.src=p.image;img.alt=p.name||'Товар';img.onerror=()=>{img.remove();photo.textContent='▧'};photo.append(img)}else{photo.innerHTML='<span class="placeholder">▧</span>'}
+  card.append(photo);
+  const price=document.createElement('div');price.className='price';price.textContent=money(p.price);
+  if(p.old_price&&p.old_price>p.price){const old=document.createElement('span');old.className='old';old.textContent=money(p.old_price);price.append(old)}
+  card.append(price);
+  const name=document.createElement('div');name.className='name';name.textContent=p.name||'Без названия';card.append(name);
+  const size=document.createElement('div');size.className='size';size.textContent=[p.brand,p.size,p.unit].filter(Boolean).join(' · ');card.append(size);
+  return card;
+ }
+ function showProducts(items,append=false){
+  const root=$('products');if(!append)root.replaceChildren();
+  items.forEach(p=>root.append(productCard(p)));
+  $('empty').hidden=root.children.length!==0;
+ }
+ async function loadProducts(reset=true){
+  if(busy)return;busy=true;$('more').disabled=true;
+  if(reset){offset=0;showProducts([]);$('empty').hidden=true}
+  setStatus('Загружаю товары…');
+  try{
+   let path;
+   if(mode==='search')path='/search?query='+encodeURIComponent(query)+'&limit='+PAGE+'&offset='+offset;
+   else if(selected)path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset;
+   else {
+    // Главная лента: загружаем первую доступную категорию, а не выдаём фиктивный общий список.
+    if(!categories.length){showProducts([]);setStatus('Категории не найдены');return}
+    selected=categories[0].id;renderCats();$('heading').textContent=categories[0].full_name||categories[0].name;
+    path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset;
+   }
+   const d=await get(path);showProducts(d.products||[],!reset);
+   hasMore=!!(d.page&&d.page.has_more);$('more').hidden=!hasMore;
+   offset+=((d.products||[]).length);
+   const stamp=d.checked_at?new Date(d.checked_at).toLocaleString('ru-RU'):'';
+   setStatus('Магазин подтверждён · обновлено '+stamp);
+  }catch(e){if(reset){$('products').replaceChildren();$('empty').hidden=true}const el=document.createElement('div');el.className='error';el.textContent=e.message;$('products').append(el);$('more').hidden=true;setStatus('Не удалось обновить каталог')}
+  finally{busy=false;$('more').disabled=false}
+ }
+ async function chooseCategory(cat){
+  mode='category';query='';$('query').value='';selected=cat?cat.id:null;
+  renderCats();$('heading').textContent=cat?(cat.full_name||cat.name):'Категории';
+  if(!cat){$('products').replaceChildren();$('empty').hidden=false;$('empty').textContent='Выбери категорию, чтобы открыть товары.';$('more').hidden=true;setStatus('Выбери категорию каталога');return}
+  $('empty').textContent='В этой категории товары не найдены.';await loadProducts(true);
+ }
+ async function search(){
+  const q=$('query').value.trim();if(!q)return;
+  mode='search';query=q;selected=null;renderCats();$('heading').textContent='Результаты поиска: '+q;await loadProducts(true);
+ }
+ async function openProduct(p){
+  $('detail').replaceChildren();const wrap=document.createElement('div');
+  const photo=document.createElement('div');photo.className='detail-photo';
+  if(p.image){const img=document.createElement('img');img.src=p.image;img.alt=p.name||'';photo.append(img)}else photo.textContent='▧';
+  const name=document.createElement('div');name.className='detail-name';name.textContent=p.name||'Товар';
+  const meta=document.createElement('div');meta.className='detail-meta';meta.textContent=[p.brand,p.size,p.unit,p.category].filter(Boolean).join(' · ');
+  const price=document.createElement('div');price.className='detail-price';price.textContent=money(p.price);
+  if(p.old_price&&p.old_price>p.price){const s=document.createElement('s');s.textContent=money(p.old_price);price.append(s)}
+  wrap.append(photo,name,meta,price);
+  if(p.promo_label){const promo=document.createElement('p');promo.textContent='Условия акции: '+p.promo_label;wrap.append(promo)}
+  if(p.is_available!==null&&p.is_available!==undefined){const stock=document.createElement('p');stock.textContent=p.is_available?'Наличие: доступен':'Наличие: нет';wrap.append(stock)}
+  $('detail').append(wrap);$('modal').classList.add('open');
+  if(p.plu){try{const d=await get('/product?plu='+encodeURIComponent(p.plu));const full=d.product;if(full){const extra=document.createElement('div');extra.className='detail-meta';extra.textContent=[full.ingredients?'Состав: '+full.ingredients:'',full.calories_per_100g!=null?'Ккал на 100 г: '+full.calories_per_100g:'',full.protein_per_100g!=null?'Белки: '+full.protein_per_100g+' г':'',full.fat_per_100g!=null?'Жиры: '+full.fat_per_100g+' г':'',full.carbs_per_100g!=null?'Углеводы: '+full.carbs_per_100g+' г':''].filter(Boolean).join('\n');extra.style.whiteSpace='pre-line';$('detail').append(extra)}}catch(e){/* Карточка списка остаётся доступна, если подробности API не отдал. */}}
+ }
+ async function init(){
+  try{
+   const d=await get('/categories');categories=d.categories||[];
+   if(d.store&&d.store.address)$('storeLine').textContent=d.store.address;
+   renderCats();
+   if(categories.length){await chooseCategory(categories[0])}
+   else{setStatus('Категории для магазина не найдены')}
+  }catch(e){setStatus('Ошибка подключения');const el=document.createElement('div');el.className='error';el.textContent=e.message;$('products').append(el)}
+ }
+ $('searchBtn').onclick=search;$('query').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+ $('more').onclick=()=>loadProducts(false);
+ $('close').onclick=()=>$('modal').classList.remove('open');
+ $('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('open')};
+ $('sort').onchange=()=>{if(mode==='category')loadProducts(true);else if(mode==='search')loadProducts(true)};
+ init();
 })();
 </script>
 </body>
