@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pyaterochka_store_api import PyaterochkaStoreAPI
 
-ADDRESS = os.getenv("PYATEROCHKA_STORE_ADDRESS", "Биробиджан, ул. Советская, д. 68 к. 1")
+ADDRESS = os.getenv("PYATEROCHKA_STORE_ADDRESS", "Биробиджан, Советская ул., дом 68/1")
 PAGE_SIZE = int(os.getenv("CATALOG_PAGE_SIZE", "100"))
 MAX_PAGES_PER_CATEGORY = int(os.getenv("CATALOG_MAX_PAGES", "100"))
 
