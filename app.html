@@ -86,7 +86,7 @@ main{max-width:1120px;margin:auto;padding:15px 14px 40px}.status{font-size:12px;
   try{
    let path;
    if(mode==='search')path='/search?query='+encodeURIComponent(query)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
-   else if(selected)path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset;
+   else if(selected)path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
    else {
     // Главная лента: загружаем первую доступную категорию, а не выдаём фиктивный общий список.
     if(!categories.length){showProducts([]);setStatus('Категории не найдены');return}
