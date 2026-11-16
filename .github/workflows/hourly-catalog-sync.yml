@@ -38,7 +38,7 @@ jobs:
           python -m camoufox fetch
       - name: Refresh full store catalogue
         env:
-          PYATEROCHKA_STORE_ADDRESS: "Биробиджан, ул. Советская, д. 68 к. 1"
+          PYATEROCHKA_STORE_ADDRESS: "Биробиджан, Советская ул., дом 68/1"
           PYATEROCHKA_MIN_INTERVAL: "0.8"
           CATALOG_PAGE_SIZE: "100"
         run: python sync_catalog.py
