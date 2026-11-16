@@ -8,6 +8,10 @@ import hmac
 import json
 import logging
 import os
+import re
+import time
+from collections import deque
+from datetime import datetime, timezone
 from typing import Any
 from pathlib import Path
 
@@ -15,6 +19,11 @@ from aiohttp import web
 from mcp.mcp_server import MCPServer, TOOLS, SERVER_NAME, SERVER_VERSION
 
 logger = logging.getLogger(__name__)
+
+TARGET_STORE_ADDRESS = "Биробиджан, ул. Советская, д. 68 к. 1"
+_PUBLIC_SEARCH_LIMIT = 8
+_PUBLIC_SEARCH_WINDOW_SECONDS = 60
+_public_search_hits: dict[str, deque[float]] = {}
 
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_SSE = "text/event-stream"
@@ -211,6 +220,69 @@ class McpHttpHandler:
         }
         return await self._process_message(body)
 
+    async def on_catalog_search(self, request: web.Request) -> web.Response:
+        """Read-only live search endpoint for ChatGPT/web clients."""
+        query = request.query.get("query", "").strip()
+        if not query or len(query) > 100:
+            return _json_response({"error": "Укажи query длиной от 1 до 100 символов"}, status=400)
+
+        client_ip = request.remote or "unknown"
+        now = time.monotonic()
+        hits = _public_search_hits.setdefault(client_ip, deque())
+        while hits and now - hits[0] >= _PUBLIC_SEARCH_WINDOW_SECONDS:
+            hits.popleft()
+        if len(hits) >= _PUBLIC_SEARCH_LIMIT:
+            return _json_response(
+                {"error": "Слишком много запросов. Попробуй через минуту."},
+                status=429,
+            )
+        hits.append(now)
+
+        try:
+            # Сначала убеждаемся, что API вернул именно нужный магазин,
+            # а не ближайшую альтернативную точку.
+            store_result = await self.server.call_tool(
+                "find_store", {"address": TARGET_STORE_ADDRESS}
+            )
+            store = store_result.get("store") or {}
+            store_id = str(store.get("store_id") or "")
+            store_address = str(store.get("address") or "")
+            address_key = re.sub(r"[^0-9а-яё]+", " ", store_address.casefold())
+            if not store_id or "советская" not in address_key or "68" not in address_key:
+                return _json_response(
+                    {
+                        "error": "API Пятёрочки не подтвердил точный магазин по адресу",
+                        "requested_store": TARGET_STORE_ADDRESS,
+                        "resolved_store": store_address or None,
+                    },
+                    status=409,
+                )
+
+            result = await self.server.call_tool(
+                "find_products",
+                {
+                    "store_id": store_id,
+                    "query": query,
+                    "limit": 20,
+                    "sort": "price_asc",
+                },
+            )
+            return _json_response(
+                {
+                    "source": "live 5ka.ru catalog",
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                    "requested_store": TARGET_STORE_ADDRESS,
+                    "store": store,
+                    **result,
+                }
+            )
+        except Exception as exc:
+            logger.exception("Live catalog search failed")
+            return _json_response(
+                {"error": "Не удалось получить данные каталога Пятёрочки", "details": str(exc)[:300]},
+                status=502,
+            )
+
     async def on_health(self, request: web.Request) -> web.Response:
         return web.Response(
             text="ok",
@@ -242,6 +314,7 @@ async def run_http_mcp_server(
     app.router.add_get("/", handler.on_index)
     app.router.add_get("/app", handler.on_app)
     app.router.add_post("/app-api", handler.on_app_api)
+    app.router.add_get("/catalog-search", handler.on_catalog_search)
     app.router.add_options("/app-api", handler.on_options)
     app.router.add_get("/health", handler.on_health)
     app.router.add_get("/mcp", handler.on_get)
