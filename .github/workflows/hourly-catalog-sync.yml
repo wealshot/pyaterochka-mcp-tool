@@ -1,6 +1,12 @@
 name: Hourly Pyaterochka catalogue sync
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "sync_catalog.py"
+      - "pyaterochka_store_api.py"
+      - ".github/workflows/hourly-catalog-sync.yml"
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
