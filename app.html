@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d71920">
+<title>Пятёрочка — каталог</title>
+<style>
+:root{color-scheme:light;--red:#d71920;--ink:#202124;--muted:#777;--line:#ececec;--bg:#f6f6f6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:var(--red);color:white;padding:18px 18px 22px;font-weight:800;font-size:21px}
+header small{display:block;font-size:12px;font-weight:500;opacity:.9;margin-top:4px}
+main{max-width:680px;margin:0 auto;padding:16px 14px 30px}
+.panel,.bubble{background:white;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+input,textarea{width:100%;border:1px solid #ddd;border-radius:11px;padding:12px;font:inherit;background:#fff;color:var(--ink)}
+button{border:0;border-radius:12px;background:var(--red);color:white;padding:12px 16px;font:600 15px inherit;cursor:pointer}
+button.secondary{background:#f0f0f0;color:#333}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+#messages{min-height:180px}.msg{padding:12px 13px;border-radius:14px;margin:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4}.user{background:#fff0f0;margin-left:28px}.bot{background:#f1f1f1;margin-right:16px}.hint{font-size:12px;color:var(--muted);line-height:1.4}.status{font-size:12px;color:var(--muted);margin-top:8px}.hidden{display:none}
+</style>
+</head>
+<body>
+<header>🛒 Пятёрочка — каталог<small>Поиск товаров и цен в выбранном магазине</small></header>
+<main>
+<section class="panel" id="setup">
+  <label for="token">Токен доступа Render (MCP_AUTH_TOKEN)</label>
+  <input id="token" type="password" autocomplete="off" placeholder="Вставь токен из Render → Environment">
+  <div style="height:9px"></div>
+  <label for="address">Адрес магазина</label>
+  <input id="address" value="Биробиджан, ул. Советская, д. 68 к. 1" autocomplete="street-address">
+  <div style="height:12px"></div>
+  <button id="save">Подключить</button>
+  <div class="hint" style="margin-top:10px">Токен хранится только в памяти этой вкладки и не отправляется никуда, кроме твоего сервера Render. Не делись им с другими.</div>
+  <div id="setupStatus" class="status"></div>
+</section>
+<section class="panel hidden" id="chatPanel">
+  <div class="row"><strong>Чат с каталогом</strong><button class="secondary" id="change" style="flex:0 0 auto">Настройки</button></div>
+  <div id="messages" aria-live="polite"></div>
+  <label for="question">Что найти?</label>
+  <div class="row"><input id="question" placeholder="Например: куриное филе 1 кг"><button id="send" style="flex:0 0 auto">Найти</button></div>
+  <div class="status" id="chatStatus">Подключено к серверу</div>
+</section>
+</main>
+<script>
+(() => {
+const base = location.origin;
+let token = "";
+let requestId = 0;
+const $ = id => document.getElementById(id);
+function bubble(text, who) {
+ const el=document.createElement("div"); el.className="msg "+who; el.textContent=text; $("messages").appendChild(el); el.scrollIntoView({block:"nearest"});
+}
+async function rpc(method, params={}) {
+ const id=++requestId;
+ const response=await fetch(base+"/mcp",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({jsonrpc:"2.0",id,method,params})});
+ if(!response.ok) throw new Error(response.status===401?"Неверный токен. Проверь MCP_AUTH_TOKEN в Render.":"Ошибка сервера: HTTP "+response.status);
+ const data=await response.json();
+ if(data.error) throw new Error(data.error.message||"Ошибка MCP");
+ return data.result;
+}
+async function connect() {
+ token=$("token").value.trim();
+ if(!token){$("setupStatus").textContent="Вставь токен доступа.";return}
+ $("setupStatus").textContent="Проверяю подключение…";
+ try {
+  await rpc("initialize",{protocolVersion:"2024-11-05",capabilities:{},clientInfo:{name:"pyaterochka-mobile-chat",version:"1.0.0"}});
+  await rpc("notifications/initialized");
+  $("setup").classList.add("hidden"); $("chatPanel").classList.remove("hidden");
+  bubble("Подключение готово. Напиши название товара, например «куриное филе».","bot");
+ } catch(e){$("setupStatus").textContent=e.message;token=""}
+}
+async function search() {
+ const q=$("question").value.trim(); if(!q)return;
+ $("question").value=""; bubble(q,"user"); $("send").disabled=true; $("chatStatus").textContent="Ищу в каталоге…";
+ try {
+  const result=await rpc("tools/call",{name:"find_products",arguments:{address:$("address").value.trim(),query:q,limit:20,sort:"price_asc"}});
+  const content=(result.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");
+  let output=content||JSON.stringify(result);
+  try { output=JSON.stringify(JSON.parse(content),null,2); } catch {}
+  bubble(output,"bot");
+  $("chatStatus").textContent=result.isError?"Запрос завершился с ошибкой":"Поиск завершён";
+ } catch(e){bubble("Не удалось выполнить поиск: "+e.message,"bot");$("chatStatus").textContent="Ошибка"}
+ finally{$("send").disabled=false}
+}
+$("save").addEventListener("click",connect);
+$("send").addEventListener("click",search);
+$("question").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
+$("change").addEventListener("click",()=>{token="";$("chatPanel").classList.add("hidden");$("setup").classList.remove("hidden");$("token").value=""});
+})();
+</script>
+</body>
+</html>
