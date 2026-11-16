@@ -65,7 +65,6 @@ async function connect() {
  $("setupStatus").textContent="Проверяю подключение…";
  try {
   await rpc("initialize",{protocolVersion:"2024-11-05",capabilities:{},clientInfo:{name:"pyaterochka-mobile-chat",version:"1.0.0"}});
-  await rpc("notifications/initialized");
   $("setup").classList.add("hidden"); $("chatPanel").classList.remove("hidden");
   bubble("Подключение готово. Напиши название товара, например «куриное филе».","bot");
  } catch(e){$("setupStatus").textContent=e.message;token=""}
