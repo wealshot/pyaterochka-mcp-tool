@@ -283,6 +283,124 @@ class McpHttpHandler:
                 status=502,
             )
 
+    async def _catalog_store(self) -> dict[str, Any]:
+        cached = getattr(self, "_catalog_store_cache", None)
+        if cached:
+            return cached
+        lock = getattr(self, "_catalog_store_lock", None)
+        if lock is None:
+            self._catalog_store_lock = asyncio.Lock()
+            lock = self._catalog_store_lock
+        async with lock:
+            cached = getattr(self, "_catalog_store_cache", None)
+            if cached:
+                return cached
+            store_result = await self.server.call_tool("find_store", {"address": TARGET_STORE_ADDRESS})
+            store = store_result.get("store") or {}
+            address = str(store.get("address") or "")
+            normalized = re.sub(r"[^0-9а-яё]+", " ", address.casefold()).split()
+            # Не принимаем ближайшую точку вместо требуемого дома/корпуса.
+            has_house = any(normalized[i] == "68" for i in range(len(normalized)))
+            has_corpus = any(normalized[i] == "1" for i in range(len(normalized)))
+            if not store.get("store_id") or "советская" not in normalized or not has_house or not has_corpus:
+                raise web.HTTPConflict(text=json.dumps({
+                    "error": "Точный магазин по адресу не подтверждён",
+                    "requested_store": TARGET_STORE_ADDRESS,
+                    "resolved_store": address or None
+                }, ensure_ascii=False), content_type="application/json")
+            self._catalog_store_cache = store
+            return store
+
+    async def on_catalog_categories(self, request: web.Request) -> web.Response:
+        try:
+            store = await self._catalog_store()
+            result = await self.server.call_tool("list_store_categories", {"store_id": store["store_id"]})
+            return _json_response({
+                "source": "live 5ka.ru catalog",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "store": store,
+                **result
+            })
+        except web.HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("Catalog categories failed")
+            return _json_response({"error": "Не удалось загрузить категории", "details": str(exc)[:250]}, status=502)
+
+    async def on_catalog_products(self, request: web.Request) -> web.Response:
+        category_id = request.query.get("category_id", "").strip()
+        try:
+            limit = min(max(int(request.query.get("limit", "30")), 1), 60)
+            offset = max(int(request.query.get("offset", "0")), 0)
+        except ValueError:
+            return _json_response({"error": "limit и offset должны быть числами"}, status=400)
+        if not category_id or len(category_id) > 100:
+            return _json_response({"error": "Не указан category_id"}, status=400)
+        try:
+            store = await self._catalog_store()
+            result = await self.server.call_tool("list_category_products", {
+                "store_id": store["store_id"], "category_id": category_id,
+                "limit": limit, "offset": offset, "sort": "popularity"
+            })
+            return _json_response({
+                "source": "live 5ka.ru catalog",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "store": store, **result,
+                "page": {"limit": limit, "offset": offset, "has_more": len(result.get("products", [])) == limit}
+            })
+        except web.HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("Catalog products failed")
+            return _json_response({"error": "Не удалось загрузить товары", "details": str(exc)[:250]}, status=502)
+
+    async def on_catalog_query(self, request: web.Request) -> web.Response:
+        query = request.query.get("query", "").strip()
+        if not query or len(query) > 100:
+            return _json_response({"error": "Укажи запрос от 1 до 100 символов"}, status=400)
+        try:
+            limit = min(max(int(request.query.get("limit", "30")), 1), 60)
+            offset = max(int(request.query.get("offset", "0")), 0)
+        except ValueError:
+            return _json_response({"error": "limit и offset должны быть числами"}, status=400)
+        try:
+            store = await self._catalog_store()
+            result = await self.server.call_tool("search_products", {
+                "store_id": store["store_id"], "query": query,
+                "limit": limit, "offset": offset, "sort": "popularity"
+            })
+            return _json_response({
+                "source": "live 5ka.ru catalog",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "store": store, **result,
+                "page": {"limit": limit, "offset": offset, "has_more": len(result.get("products", [])) == limit}
+            })
+        except web.HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("Catalog search failed")
+            return _json_response({"error": "Не удалось выполнить поиск", "details": str(exc)[:250]}, status=502)
+
+    async def on_catalog_product(self, request: web.Request) -> web.Response:
+        plu = request.query.get("plu", "").strip()
+        if not plu or len(plu) > 40:
+            return _json_response({"error": "Не указан PLU товара"}, status=400)
+        try:
+            store = await self._catalog_store()
+            result = await self.server.call_tool("get_product_info", {
+                "store_id": store["store_id"], "plu": plu
+            })
+            return _json_response({
+                "source": "live 5ka.ru catalog",
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "store": store, **result
+            })
+        except web.HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("Catalog product details failed")
+            return _json_response({"error": "Не удалось загрузить карточку товара", "details": str(exc)[:250]}, status=502)
+
     async def on_health(self, request: web.Request) -> web.Response:
         return web.Response(
             text="ok",
@@ -315,6 +433,10 @@ async def run_http_mcp_server(
     app.router.add_get("/app", handler.on_app)
     app.router.add_post("/app-api", handler.on_app_api)
     app.router.add_get("/catalog-search", handler.on_catalog_search)
+    app.router.add_get("/catalog-api/categories", handler.on_catalog_categories)
+    app.router.add_get("/catalog-api/products", handler.on_catalog_products)
+    app.router.add_get("/catalog-api/search", handler.on_catalog_query)
+    app.router.add_get("/catalog-api/product", handler.on_catalog_product)
     app.router.add_options("/app-api", handler.on_options)
     app.router.add_get("/health", handler.on_health)
     app.router.add_get("/mcp", handler.on_get)
