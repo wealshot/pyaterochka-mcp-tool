@@ -367,7 +367,7 @@ class McpHttpHandler:
             store = await self._catalog_store()
             result = await self.server.call_tool("search_products", {
                 "store_id": store["store_id"], "query": query,
-                "limit": limit, "offset": offset, "sort": "popularity"
+                "limit": limit, "offset": offset, "sort": request.query.get("sort", "popularity")
             })
             return _json_response({
                 "source": "live 5ka.ru catalog",
