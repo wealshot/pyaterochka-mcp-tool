@@ -42,7 +42,7 @@ main{max-width:1120px;margin:auto;padding:15px 14px 40px}.status{font-size:12px;
 <script>
 (() => {
  const $=id=>document.getElementById(id), API='/catalog-api', PAGE=30;
- let categories=[], selected=null, offset=0, mode='category', query='', busy=false, hasMore=false;
+ let categories=[], selected=null, offset=0, mode='category', query='', busy=false, hasMore=false, snapshotData=null;
  const money=v=>v==null?'Цена не указана':new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+' ₽';
  const esc=s=>String(s??'');
  async function get(path){
@@ -84,20 +84,27 @@ main{max-width:1120px;margin:auto;padding:15px 14px 40px}.status{font-size:12px;
   if(reset){offset=0;showProducts([]);$('empty').hidden=true}
   setStatus('Загружаю товары…');
   try{
-   let path;
-   if(mode==='search')path='/search?query='+encodeURIComponent(query)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
-   else if(selected)path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
-   else {
-    // Главная лента: загружаем первую доступную категорию, а не выдаём фиктивный общий список.
-    if(!categories.length){showProducts([]);setStatus('Категории не найдены');return}
-    selected=categories[0].id;renderCats();$('heading').textContent=categories[0].full_name||categories[0].name;
-    path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset;
+   if(snapshotData){
+    let list=snapshotData.products.filter(p=>mode==='search'
+      ? query.toLocaleLowerCase('ru').split(/\\s+/).every(w=>(p.name||'').toLocaleLowerCase('ru').includes(w))
+      : !selected||String(p.category)===String(selected));
+    const sort=$('sort').value;
+    if(sort==='price_asc')list.sort((a,b)=>(a.price??Infinity)-(b.price??Infinity));
+    if(sort==='price_desc')list.sort((a,b)=>(b.price??-Infinity)-(a.price??-Infinity));
+    if(sort==='discount_desc')list.sort((a,b)=>((b.old_price||b.price||0)-(b.price||0))-((a.old_price||a.price||0)-(a.price||0)));
+    const page=list.slice(offset,offset+PAGE);showProducts(page,!reset);
+    offset+=page.length;hasMore=offset<list.length;$('more').hidden=!hasMore;
+    const stamp=snapshotData.checked_at?new Date(snapshotData.checked_at).toLocaleString('ru-RU'):'';
+    setStatus('Снимок каталога · '+snapshotData.product_count+' товаров · обновлено '+stamp);
+   } else {
+    let path;
+    if(mode==='search')path='/search?query='+encodeURIComponent(query)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
+    else if(selected)path='/products?category_id='+encodeURIComponent(selected)+'&limit='+PAGE+'&offset='+offset+'&sort='+encodeURIComponent($('sort').value);
+    else {showProducts([]);setStatus('Выбери категорию');return}
+    const d=await get(path);showProducts(d.products||[],!reset);
+    hasMore=!!(d.page&&d.page.has_more);$('more').hidden=!hasMore;offset+=(d.products||[]).length;
+    setStatus('Магазин подтверждён · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU'));
    }
-   const d=await get(path);showProducts(d.products||[],!reset);
-   hasMore=!!(d.page&&d.page.has_more);$('more').hidden=!hasMore;
-   offset+=((d.products||[]).length);
-   const stamp=d.checked_at?new Date(d.checked_at).toLocaleString('ru-RU'):'';
-   setStatus('Магазин подтверждён · обновлено '+stamp);
   }catch(e){if(reset){$('products').replaceChildren();$('empty').hidden=true}const el=document.createElement('div');el.className='error';el.textContent=e.message;$('products').append(el);$('more').hidden=true;setStatus('Не удалось обновить каталог')}
   finally{busy=false;$('more').disabled=false}
  }
@@ -127,12 +134,20 @@ main{max-width:1120px;margin:auto;padding:15px 14px 40px}.status{font-size:12px;
  }
  async function init(){
   try{
-   const d=await get('/categories');categories=d.categories||[];
-   if(d.store&&d.store.address)$('storeLine').textContent=d.store.address;
-   renderCats();
-   if(categories.length){await chooseCategory(categories[0])}
-   else{setStatus('Категории для магазина не найдены')}
-  }catch(e){setStatus('Ошибка подключения');const el=document.createElement('div');el.className='error';el.textContent=e.message;$('products').append(el)}
+   const r=await fetch('https://raw.githubusercontent.com/wealshot/pyaterochka-mcp-tool/main/data/catalog.json',{cache:'no-store'});
+   if(r.ok){
+    const d=await r.json();
+    if(d.products&&d.categories&&d.products.length){snapshotData=d;categories=d.categories;$('storeLine').textContent=d.store.address||$('storeLine').textContent;renderCats();$('heading').textContent='Все товары';selected=null;mode='category';await loadProducts(true);return}
+   }
+   throw new Error('Снимок каталога пока не опубликован.');
+  }catch(snapshotError){
+   try{
+    const d=await get('/categories');categories=d.categories||[];
+    if(d.store&&d.store.address)$('storeLine').textContent=d.store.address;
+    renderCats();if(categories.length){await chooseCategory(categories[0])}
+    else{setStatus('Категории для магазина не найдены')}
+   }catch(e){setStatus('Каталог пока недоступен');const el=document.createElement('div');el.className='error';el.textContent=e.message;$('products').append(el)}
+  }
  }
  $('searchBtn').onclick=search;$('query').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
  $('more').onclick=()=>loadProducts(false);
