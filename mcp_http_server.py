@@ -53,7 +53,7 @@ def _json_response(
 async def auth_middleware(request: web.Request, handler):
     token = os.getenv("MCP_AUTH_TOKEN", "")
 
-    if request.path == "/health" or not token:
+    if request.path != "/mcp" or not token:
         return await handler(request)
 
     authorization = request.headers.get("Authorization", "")
