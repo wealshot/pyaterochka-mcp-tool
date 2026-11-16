@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from typing import Any
+from pathlib import Path
 
 from aiohttp import web
 from mcp.mcp_server import MCPServer, TOOLS, SERVER_NAME, SERVER_VERSION
@@ -178,6 +179,12 @@ class McpHttpHandler:
             headers=_cors_headers(),
         )
 
+    async def on_app(self, request: web.Request) -> web.Response:
+        app_file = Path(__file__).with_name("app.html")
+        if not app_file.is_file():
+            return web.Response(text="Mobile app file not found", status=404)
+        return web.FileResponse(app_file)
+
 
 async def run_http_mcp_server(
     host: str = "0.0.0.0",
@@ -193,6 +200,7 @@ async def run_http_mcp_server(
     )
 
     app.router.add_get("/", handler.on_index)
+    app.router.add_get("/app", handler.on_app)
     app.router.add_get("/health", handler.on_health)
     app.router.add_get("/mcp", handler.on_get)
     app.router.add_options("/mcp", handler.on_options)
