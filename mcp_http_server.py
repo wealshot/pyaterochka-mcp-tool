@@ -171,6 +171,46 @@ class McpHttpHandler:
             }
         )
 
+
+    async def on_app_api(self, request: web.Request) -> web.Response:
+        """Ограниченный публичный API мобильной страницы без выдачи MCP-токена."""
+        content_type = (request.content_type or "").split(";")[0].strip().lower()
+        if content_type != CONTENT_TYPE_JSON:
+            return _json_response({"error": "Content-Type must be application/json"}, status=415)
+        try:
+            body = await request.json()
+        except Exception:
+            return _json_response({"error": "Invalid JSON"}, status=400)
+
+        if not isinstance(body, dict) or body.get("method") != "tools/call":
+            return _json_response({"error": "Only product search is available"}, status=400)
+
+        params = body.get("params") or {}
+        if params.get("name") != "find_products":
+            return _json_response({"error": "Only find_products is available"}, status=403)
+
+        supplied = params.get("arguments") or {}
+        query = str(supplied.get("query", "")).strip()
+        if not query or len(query) > 100:
+            return _json_response({"error": "Укажи название товара (до 100 символов)"}, status=400)
+
+        # Запросы через публичную страницу всегда ограничены одним выбранным магазином.
+        body = {
+            "jsonrpc": "2.0",
+            "id": body.get("id"),
+            "method": "tools/call",
+            "params": {
+                "name": "find_products",
+                "arguments": {
+                    "address": "Биробиджан, ул. Советская, д. 68 к. 1",
+                    "query": query,
+                    "limit": 20,
+                    "sort": "price_asc",
+                },
+            },
+        }
+        return await self._process_message(body)
+
     async def on_health(self, request: web.Request) -> web.Response:
         return web.Response(
             text="ok",
@@ -201,6 +241,8 @@ async def run_http_mcp_server(
 
     app.router.add_get("/", handler.on_index)
     app.router.add_get("/app", handler.on_app)
+    app.router.add_post("/app-api", handler.on_app_api)
+    app.router.add_options("/app-api", handler.on_options)
     app.router.add_get("/health", handler.on_health)
     app.router.add_get("/mcp", handler.on_get)
     app.router.add_options("/mcp", handler.on_options)
